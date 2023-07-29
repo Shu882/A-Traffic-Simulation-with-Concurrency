@@ -14,9 +14,12 @@ T MessageQueue<T>::receive()
     // to wait for and receive new messages and pull them from the queue using move semantics. 
     // The received object should then be returned by the receive function.
 	std::unique_lock<std::mutex> ul(_mutex);
-	while(_queue.empty()) _condition.wait();
+	while(_queue.empty()) _condition.wait(ul);
+
 	// pull them from the queue
-	return std::move(_queue.end());
+	T msg = std::move(_queue.front());
+	_queue.pop_front();
+	return msg;
 }
 
 template <typename T>
@@ -46,8 +49,7 @@ void TrafficLight::waitForGreen()
     // Once it receives TrafficLightPhase::green, the method returns.
 	while(true){
 		std::this_thread::sleep_for(std::chrono::milliseconds(1));
-		TrafficLight msg = MessageQueue<TrafficLight>::receive();
-		if (msg == TrafficLightPhase::green) break;
+		if (_msg.receive() == TrafficLightPhase::green) break;
 	}
 	return ;
 }
@@ -80,7 +82,7 @@ void TrafficLight::cycleThroughPhases()
 
 	while (true){
 		auto t1 = std::chrono::high_resolution_clock ::now();
-		auto timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>((t1-t0).count()); // time passed since t0=last update
+		auto timeSinceLastUpdate = std::chrono::duration_cast<std::chrono::milliseconds>(t1-t0).count(); // time passed since t0=last update
 		// cycle duration should be between 4-6 sec, 4000-6000 ms
 		randomCycleDuration = int(double(rand())/RAND_MAX * 2000) + 4000;
 		if (timeSinceLastUpdate >= randomCycleDuration){
